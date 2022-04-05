@@ -1,0 +1,71 @@
+label: Endorser Agent
+
+# Admin
+admin: [0.0.0.0, 3002]
+admin-insecure-mode: true
+
+# Transport
+inbound-transport:
+  - [http, 0.0.0.0, 3000]
+  - [ws, 0.0.0.0, 3001]
+outbound-transport: http
+endpoint:
+  - http://endorser-agent:3000
+  - ws://endorser-agent:3001
+
+# Ledger
+# Indicio TestNet
+genesis-url: https://raw.githubusercontent.com/indicio-tech/indicio-network/main/genesis_files/pool_transactions_testnet_genesis
+# Sovrin BuilderNet
+# genesis-url: https://raw.githubusercontent.com/sovrin-foundation/sovrin/master/sovrin/pool_transactions_builder_genesis
+
+# Connections
+debug-connections: true
+debug-credentials: true
+debug-presentations: true
+auto-accept-invites: true
+auto-accept-requests: true
+auto-ping-connection: true
+connections-invite: false
+
+# Credentials and Presentations
+preserve-exchange-records: true
+auto-store-credential: true
+auto-respond-credential-proposal: true
+auto-respond-credential-offer: true
+auto-respond-credential-request: true
+
+auto-respond-presentation-proposal: true
+auto-respond-presentation-request: true
+auto-verify-presentation: true
+
+# Revocation Registry
+tails-server-base-url: http://tails-server:6543
+
+# Wallet
+wallet-name: endorser_wallet
+wallet-type: indy
+wallet-key: "insecure, for use in testing only"
+auto-provision: true
+wallet-storage-type: postgres_storage
+wallet-storage-config: '{"url":"db:5432","wallet_scheme":"MultiWalletSingleTable","max_connections":5}'
+wallet-storage-creds: '{"account":"acapy","password":"acapy","admin_account":"acapy","admin_password":"acapy"}'
+
+# Enable undelivered queue
+# Important for communication with toolbox over http (as opposed to ws)
+enable-undelivered-queue: true
+
+# Endorser
+auto-endorse-transactions: true
+endorser-protocol-role: endorser
+
+
+# Log
+log-level: error
+
+# Create default invitation to populate wallet
+invite-label: Endorser (Admin)
+connections-invite: true
+invite-metadata-json: '{"group": "admin"}'
+recreate-wallet: true
+wallet-local-did: true

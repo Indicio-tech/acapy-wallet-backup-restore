@@ -1,0 +1,90 @@
+version: '3.9'
+
+services:
+
+  db:
+    image: postgres:13
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U postgres" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    hostname: database
+    # volumes:
+    #   - ./db/log:/var/log:rw # log to file
+    #   - ./db/docker-entrypoint-initdb.d:/docker-entrypoint-initdb.d:ro # execute sql in here (see https://hub.docker.com/_/postgres)
+    #   - ./db/data:/var/lib/postgresql/:rw # persist the data
+    environment:
+      POSTGRES_USER: acapy
+      POSTGRES_PASSWORD: acapy
+    ports:
+      - "5432:5432"
+    expose:
+      - 5432
+    restart: unless-stopped
+    command: [ "postgres", "-p", "5432" ]
+
+  tails-server:
+    image: dbluhm/indy-tails-server
+    environment:
+      - GENESIS_URL=https://raw.githubusercontent.com/indicio-tech/indicio-network/main/genesis_files/pool_transactions_testnet_genesis
+    command: >
+      tails-server
+        --host 0.0.0.0
+        --port 6543
+        --storage-path /tmp/tails-files
+        --log-level INFO
+
+  endorser-agent:
+    image: yukimizunochan/aries-cloudagent:py36-1.16-1_0.7.3-endorser-fixes
+    depends_on:
+      - db
+    links:
+      - db:db
+    volumes:
+      - ./configs:/home/indy/configs:z
+    ports:
+      - 3002:3002  # Admin API
+    entrypoint: /bin/sh -c 'sleep 15 && aca-py "$$@"' --
+    command: >
+      start
+      --arg-file configs/endorser-agent.yml
+
+  author-agent:
+    image: yukimizunochan/aries-cloudagent:py36-1.16-1_0.7.3-endorser-fixes
+    depends_on:
+      - db
+      - endorser-agent
+    links:
+      - db:db
+    environment:
+      ACAPY_MULTITENANT_JWT_SECRET: jwt-secret
+    volumes:
+      - ./configs:/home/indy/configs:z
+    ports:
+      - 3005:3005  # Admin API
+    entrypoint: /bin/sh -c 'sleep 15 && aca-py "$$@"' --
+    command: >
+      start
+      --arg-file configs/author-agent.yml
+
+  backup-restore:
+    image: yukimizunochan/acapy-wallet-exporter:v1.0
+    depends_on:
+      - db
+      - author-agent
+      - endorser-agent
+    links:
+      - db:db
+    volumes:
+      - ./configs:/home/indy/configs:z
+      - ./did-recovery.py:/home/indy/did-recovery.py:ro,z
+    environment:
+      ACAPY_WALLET_NAME: "endorser_wallet"
+      WALLET_KEY: "insecure, for use in testing only"
+      ACAPY_WALLET_STORAGE_TYPE: "postgres_storage"
+      WALLET_STORAGE_CONFIG: '{"url":"db:5432","wallet_scheme":"MultiWalletSingleTable","max_connections":5}'
+      WALLET_STORAGE_CREDS: '{"account":"acapy","password":"acapy","admin_account":"acapy","admin_password":"acapy"}'
+    entrypoint: /bin/sh -c 'sleep 20 && python3 did-recovery.py "$$@"' --
+    command: -v backup
+
